@@ -8,7 +8,8 @@
 // @match        https://www.bondageprojects.elementfx.com/*
 // @match        https://bondage-europe.com/*
 // @match        https://www.bondage-europe.com/*
-// @match        http://localhost:*/*
+// @include      /^http:\/\/localhost(?::\d+)?\/.*$/
+// @include      /^http:\/\/127\.0\.0\.1(?::\d+)?\/.*$/
 // @run-at       document-end
 // @grant        GM_xmlhttpRequest
 // @connect      *
