@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BC VenWolf Adapter
 // @namespace    VenWolf-BondageClub
-// @version      0.1.2
+// @version      0.1.3
 // @description  Send Bondage Club activity events to VenWolf/DG-Lab Game API.
 // @author       QAQMOON
 // @homepageURL  https://github.com/QAQMOON/-BC-VenWolf-Adapter
@@ -19,8 +19,6 @@
 // @match        https://bondage-asia.com/club/R*/*
 // @match        https://www.bondage-asia.com/club/R*/*
 // @include      /^https:\/\/(www\.)?bondage(projects\.elementfx|-(europe|asia))\.com\/.*$/
-// @include      /^http:\/\/localhost(?::\d+)?\/.*$/
-// @include      /^http:\/\/127\.0\.0\.1(?::\d+)?\/.*$/
 // @run-at       document-end
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
@@ -32,7 +30,7 @@
     'use strict';
 
     const W = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const VERSION = '0.1.2';
+    const VERSION = '0.1.3';
     const SHORT = 'BC-VenWolf';
     const MOD_ID = 'BCVenWolfAdapter';
     const MOD_SDK_URL = 'https://cdn.jsdelivr.net/npm/bondage-club-mod-sdk@1.2.0/dist/bcmodsdk.js';
@@ -61,6 +59,7 @@
         useZoneFallback: true,
         showLocalMessages: true,
         dryRun: false,
+        debugEvents: false,
     };
 
     const BODY_ZONE_SENS = {
@@ -83,6 +82,8 @@
     };
 
     const ACTION_RULES = [
+        rule('OnSelf', 12, 6000, ['*'], ['ItemAdded', 'ItemRemoved']),
+        rule('OnSelf', 20, 12000, ['*'], ['ToyEvent', 'Vibration', 'Inflation']),
         rule('OnSelf', 25, 30000, ['ItemMouth'], ['Kiss', 'FrenchKiss', 'Lick', 'Caress', 'Grope', 'Pull', 'Massage', 'Rub']),
         rule('OnSelf', 25, 30000, ['ItemEar'], ['Kiss', 'Nibble', 'Lick', 'Bite', 'Caress', 'Grope', 'Pull', 'Massage', 'Rub']),
         rule('OnSelf', 25, 30000, ['ItemVulva', 'ItemVulvaPiercings', 'ItemBreast', 'ItemNipples', 'ItemButt', 'ItemMouth', 'ItemEar'], ['Caress', 'Kiss', 'Grope', 'Pull', 'Massage', 'Lick', 'Rub']),
@@ -125,6 +126,10 @@
         lastEventKey: '',
         requestOk: 0,
         requestFailed: 0,
+        eventSeen: 0,
+        eventTriggered: 0,
+        lastEvent: '',
+        lastSkip: '',
     };
 
     function rule(type, intensity, durationMs, names, actions, items) {
@@ -181,6 +186,15 @@
 
     function eventToKey(event) {
         return [event.type, event.slot || '', event.action || '', event.item || ''].join('|');
+    }
+
+    function describeEvent(event) {
+        return `${event.type || '?'} ${event.slot || '*'} ${event.action || '*'} ${event.item || ''}`.trim();
+    }
+
+    function debugEvent(stage, data) {
+        if (!settings.debugEvents) return;
+        console.log(`[${SHORT}] ${stage}`, data);
     }
 
     function listMatches(list, value) {
@@ -375,22 +389,34 @@
     }
 
     function dispatchGameEvent(event) {
+        runtime.eventSeen++;
+        runtime.lastEvent = describeEvent(event);
+        debugEvent('event', event);
+
         if (!settings.enabled) return;
         if (event.type === 'OnOther' && !settings.triggerOnOther) return;
 
         const matchedRule = findRule(event);
-        if (!matchedRule && !settings.useZoneFallback) return;
+        if (!matchedRule && !settings.useZoneFallback && !Number.isFinite(event.intensity)) {
+            runtime.lastSkip = `no rule: ${runtime.lastEvent}`;
+            return;
+        }
         if (!canTrigger(event)) return;
 
-        const percent = matchedRule
+        const percent = Number.isFinite(event.intensity)
+            ? event.intensity
+            : matchedRule
             ? matchedRule.intensity
             : calcZoneIntensityPercent(event.slot, event.action);
-        const duration = matchedRule
+        const duration = Number.isFinite(event.durationMs)
+            ? event.durationMs
+            : matchedRule
             ? matchedRule.durationMs
             : settings.defaultDurationMs;
         const strength = percentToFireStrength(percent);
         const reason = `${event.type} ${event.slot || '*'} ${event.action || '*'} ${event.item || ''}`.trim();
 
+        runtime.eventTriggered++;
         fireVenWolf(strength, duration, reason).catch((error) => {
             notify(`request failed: ${error.message}`, 8000);
         });
@@ -429,6 +455,28 @@
         const appearance = W.Player && W.Player.Appearance;
         if (!Array.isArray(appearance)) return null;
         return appearance.find((item) => item && item.Asset && item.Asset.Name === assetName) || null;
+    }
+
+    function appearanceBySlot(slot) {
+        const appearance = W.Player && W.Player.Appearance;
+        if (!Array.isArray(appearance)) return null;
+        return appearance.find((item) => item && item.Asset && item.Asset.DynamicGroupName === slot) || null;
+    }
+
+    function assetGroupName(item) {
+        if (!item || !item.Asset) return '';
+        return item.Asset.DynamicGroupName
+            || (item.Asset.Group && item.Asset.Group.Name)
+            || '';
+    }
+
+    function itemPropertyNumber(item, keys) {
+        if (!item || !item.Property) return null;
+        for (const key of keys) {
+            const value = item.Property[key];
+            if (value !== null && value !== undefined && Number.isFinite(Number(value))) return Number(value);
+        }
+        return null;
     }
 
     function handleActivity(data) {
@@ -481,6 +529,120 @@
             item: assetName,
             raw: data,
         });
+    }
+
+    function handleItemEquip(data) {
+        if (data.Type !== 'Action') return;
+        const destination = sDict(data, 'DestinationCharacter', 'MemberNumber');
+        const source = sDict(data, 'SourceCharacter', 'MemberNumber');
+        if (!sameMember(destination, playerMemberNumber()) || sameMember(source, playerMemberNumber())) return;
+
+        const slot = firstDictValue(data, 'FocusAssetGroup', ['FocusGroupName', 'AssetGroupName', 'GroupName']);
+        if (!slot) return;
+
+        if (data.Content === 'ActionUse') {
+            const item = firstDictValue(data, 'NextAsset', ['AssetName', 'Name']);
+            if (!item) return;
+            dispatchGameEvent({
+                type: 'OnSelf',
+                slot,
+                action: 'ItemAdded',
+                item,
+                intensity: 12,
+                durationMs: 6000,
+                raw: data,
+            });
+        } else if (data.Content === 'ActionRemove') {
+            const item = firstDictValue(data, 'PrevAsset', ['AssetName', 'Name']);
+            if (!item) return;
+            dispatchGameEvent({
+                type: 'OnSelf',
+                slot,
+                action: 'ItemRemoved',
+                item,
+                intensity: 8,
+                durationMs: 3000,
+                raw: data,
+            });
+        }
+    }
+
+    function handleToyAssetState(item, actionName, raw) {
+        const slot = assetGroupName(item);
+        const itemName = item && item.Asset && item.Asset.Name || '';
+        if (!slot || !itemName) return false;
+
+        const shockLevel = itemPropertyNumber(item, ['ShockLevel']);
+        if (shockLevel !== null && shockLevel >= 0) {
+            dispatchGameEvent({
+                type: 'OnSelf',
+                slot,
+                action: SHOCK_ACTIONS[Math.max(0, Math.min(2, Math.round(shockLevel)))] || 'ShockLow',
+                item: itemName,
+                intensity: Math.max(20, Math.min(60, (shockLevel + 1) * 20)),
+                durationMs: 8000,
+                raw,
+            });
+            return true;
+        }
+
+        const vibrationLevel = itemPropertyNumber(item, ['Intensity', 'VibrationLevel']);
+        if (vibrationLevel !== null && vibrationLevel >= 0) {
+            dispatchGameEvent({
+                type: 'OnSelf',
+                slot,
+                action: actionName || 'Vibration',
+                item: itemName,
+                intensity: Math.max(10, Math.min(100, (vibrationLevel + 1) * 20)),
+                durationMs: settings.defaultDurationMs,
+                raw,
+            });
+            return true;
+        }
+
+        const inflateLevel = itemPropertyNumber(item, ['InflateLevel', 'InflationLevel']);
+        if (inflateLevel !== null && inflateLevel > 0) {
+            dispatchGameEvent({
+                type: 'OnSelf',
+                slot,
+                action: actionName || 'Inflation',
+                item: itemName,
+                intensity: Math.max(10, Math.min(100, inflateLevel * 20)),
+                durationMs: settings.defaultDurationMs,
+                raw,
+            });
+            return true;
+        }
+
+        return false;
+    }
+
+    function handleToyEvents(data) {
+        if (data.Type !== 'Action') return;
+        const destination = sDict(data, 'DestinationCharacter', 'MemberNumber')
+            || sDict(data, 'DestinationCharacterName', 'MemberNumber')
+            || sDict(data, 'TargetCharacterName', 'MemberNumber');
+        if (!sameMember(destination, playerMemberNumber())) return;
+
+        const assetName = firstDictValue(data, 'AssetName', ['AssetName', 'Name'])
+            || firstDictValue(data, 'ActivityAsset', ['AssetName', 'Name'])
+            || '';
+        const asset = appearanceByAssetName(assetName);
+        const shockLevel = shockLevelFromAction(data);
+        if (shockLevel >= 0 && asset) {
+            handleToyAssetState({
+                ...asset,
+                Property: {
+                    ...(asset.Property || {}),
+                    ShockLevel: shockLevel,
+                },
+            }, SHOCK_ACTIONS[shockLevel], data);
+            return;
+        }
+
+        if (asset) {
+            handleToyAssetState(asset, 'ToyEvent', data);
+        }
     }
 
     function handlePortalLink(data) {
@@ -550,6 +712,7 @@
             '/vw override on|off',
             '/vw onother on|off',
             '/vw dry on|off',
+            '/vw debug on|off',
             '/vw test [strength] [ms]',
         ].join('\n');
     }
@@ -574,7 +737,7 @@
         }
 
         if (sub === 'status') {
-            notify(`enabled=${settings.enabled}, url=${settings.baseUrl}, client=${settings.clientId}, max=${settings.maxFireStrength}, dry=${settings.dryRun}, ok=${runtime.requestOk}, failed=${runtime.requestFailed}`, 12000);
+            notify(`enabled=${settings.enabled}, url=${settings.baseUrl}, client=${settings.clientId}, max=${settings.maxFireStrength}, dry=${settings.dryRun}, seen=${runtime.eventSeen}, sent=${runtime.eventTriggered}, ok=${runtime.requestOk}, failed=${runtime.requestFailed}, last=${runtime.lastEvent || 'none'}`, 12000);
             return true;
         }
 
@@ -639,11 +802,12 @@
             return true;
         }
 
-        if ((sub === 'override' || sub === 'dry' || sub === 'onother') && parts[2]) {
+        if ((sub === 'override' || sub === 'dry' || sub === 'onother' || sub === 'debug') && parts[2]) {
             const enabled = parts[2].toLowerCase() === 'on';
             if (sub === 'override') settings.override = enabled;
             if (sub === 'dry') settings.dryRun = enabled;
             if (sub === 'onother') settings.triggerOnOther = enabled;
+            if (sub === 'debug') settings.debugEvents = enabled;
             saveSettings();
             notify(`${sub}=${enabled}`);
             return true;
@@ -735,7 +899,82 @@
             eventPatched = true;
         }
 
+        hookGameFunction('VibratorModePublish', 3, (args, next) => {
+            const result = next(args);
+            if (args && args[1] && sameMember(args[1].MemberNumber, playerMemberNumber())) {
+                const slot = args[2] && args[2].Asset && args[2].Asset.DynamicGroupName;
+                const item = slot ? appearanceBySlot(slot) : null;
+                if (item) handleToyAssetState(item, 'Vibration', { hook: 'VibratorModePublish' });
+            }
+            return result;
+        });
+
+        hookGameFunction('ExtendedItemSetOption', 7, (args, next) => {
+            const result = next(args);
+            if (args && args.length >= 3 && args[1] && sameMember(args[1].MemberNumber, playerMemberNumber())) {
+                handleToyAssetState(args[2], 'ToyEvent', { hook: 'ExtendedItemSetOption' });
+            }
+            return result;
+        });
+
+        hookGameFunction('InventoryWear', 8, (args, next) => {
+            const result = next(args);
+            if (args && args[0] && sameMember(args[0].MemberNumber, playerMemberNumber())) {
+                const asset = appearanceByAssetName(args[1]);
+                if (asset) {
+                    dispatchGameEvent({
+                        type: 'OnSelf',
+                        slot: assetGroupName(asset),
+                        action: 'ItemAdded',
+                        item: asset.Asset && asset.Asset.Name,
+                        intensity: 12,
+                        durationMs: 6000,
+                        raw: { hook: 'InventoryWear' },
+                    });
+                    handleToyAssetState(asset, 'ToyEvent', { hook: 'InventoryWear' });
+                }
+            }
+            return result;
+        });
+
+        hookGameFunction('InventoryRemove', 3, (args, next) => {
+            if (args && args[0] && sameMember(args[0].MemberNumber, playerMemberNumber())) {
+                const asset = appearanceBySlot(args[1]);
+                if (asset) {
+                    dispatchGameEvent({
+                        type: 'OnSelf',
+                        slot: assetGroupName(asset),
+                        action: 'ItemRemoved',
+                        item: asset.Asset && asset.Asset.Name,
+                        intensity: 8,
+                        durationMs: 3000,
+                        raw: { hook: 'InventoryRemove' },
+                    });
+                }
+            }
+            return next(args);
+        });
+
+        hookGameFunction('PropertyShockPublishAction', 3, (args, next) => {
+            const focusItem = args && args[1] && args[1].Property
+                ? args[1]
+                : (W.DialogFocusItem && W.DialogFocusItem.Property ? W.DialogFocusItem : null);
+            if (focusItem) handleToyAssetState(focusItem, 'Shock', { hook: 'PropertyShockPublishAction' });
+            return next(args);
+        });
+
         return true;
+    }
+
+    function hookGameFunction(name, priority, handler) {
+        if (!bcModApi || typeof W[name] !== 'function') return false;
+        try {
+            bcModApi.hookFunction(name, priority, handler);
+            return true;
+        } catch (error) {
+            console.warn(`[${SHORT}] hook failed: ${name}`, error);
+            return false;
+        }
     }
 
     function registerSocketListener() {
@@ -753,6 +992,8 @@
         handlePortalLink(data);
         handleActivity(data);
         handleShockAction(data);
+        handleItemEquip(data);
+        handleToyEvents(data);
         handleCustomTextItems(data);
     }
 
