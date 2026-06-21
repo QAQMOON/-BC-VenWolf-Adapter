@@ -1,38 +1,50 @@
 // ==UserScript==
 // @name         BC VenWolf Adapter
 // @namespace    VenWolf-BondageClub
-// @version      0.1.1
+// @version      0.1.2
 // @description  Send Bondage Club activity events to VenWolf/DG-Lab Game API.
 // @author       QAQMOON
 // @homepageURL  https://github.com/QAQMOON/-BC-VenWolf-Adapter
 // @supportURL   https://github.com/QAQMOON/-BC-VenWolf-Adapter/issues
 // @updateURL    https://raw.githubusercontent.com/QAQMOON/-BC-VenWolf-Adapter/main/bc-venwolf-adapter.user.js
 // @downloadURL  https://raw.githubusercontent.com/QAQMOON/-BC-VenWolf-Adapter/main/bc-venwolf-adapter.user.js
+// @match        https://bondageprojects.com/club_game*
+// @match        https://www.bondageprojects.com/club_game*
 // @match        https://bondageprojects.elementfx.com/*
 // @match        https://www.bondageprojects.elementfx.com/*
 // @match        https://bondage-europe.com/*
 // @match        https://www.bondage-europe.com/*
+// @match        https://bondage-asia.com/*
+// @match        https://www.bondage-asia.com/*
+// @match        https://bondage-asia.com/club/R*/*
+// @match        https://www.bondage-asia.com/club/R*/*
+// @include      /^https:\/\/(www\.)?bondage(projects\.elementfx|-(europe|asia))\.com\/.*$/
 // @include      /^http:\/\/localhost(?::\d+)?\/.*$/
 // @include      /^http:\/\/127\.0\.0\.1(?::\d+)?\/.*$/
 // @run-at       document-end
 // @grant        GM_xmlhttpRequest
+// @grant        unsafeWindow
 // @connect      *
+// @connect      cdn.jsdelivr.net
 // ==/UserScript==
 
 (function () {
     'use strict';
 
-    const VERSION = '0.1.1';
+    const W = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+    const VERSION = '0.1.2';
     const SHORT = 'BC-VenWolf';
+    const MOD_ID = 'BCVenWolfAdapter';
+    const MOD_SDK_URL = 'https://cdn.jsdelivr.net/npm/bondage-club-mod-sdk@1.2.0/dist/bcmodsdk.js';
     const STORE_KEY = 'BC_VenWolf_Adapter_v1';
     const COMMAND = 'vw';
     const REQUEST_TIMEOUT_MS = 5000;
 
-    if (window.__BC_VENWOLF_ADAPTER__) {
+    if (W.__BC_VENWOLF_ADAPTER__) {
         console.warn(`[${SHORT}] already loaded.`);
         return;
     }
-    window.__BC_VENWOLF_ADAPTER__ = { version: VERSION };
+    W.__BC_VENWOLF_ADAPTER__ = { version: VERSION };
 
     const DEFAULT_SETTINGS = {
         enabled: true,
@@ -103,6 +115,11 @@
     const SHOCK_ACTIONS = ['ShockLow', 'ShockMed', 'ShockHigh'];
 
     let settings = loadSettings();
+    let bcModApi = null;
+    let sdkLoadingPromise = null;
+    let patched = false;
+    let eventPatched = false;
+    let socketListenerRegistered = false;
     const runtime = {
         lastFireAt: 0,
         lastEventKey: '',
@@ -146,8 +163,8 @@
 
     function notify(message, durationMs) {
         log(message);
-        if (!settings.showLocalMessages || typeof window.ChatRoomSendLocal !== 'function') return;
-        window.ChatRoomSendLocal(`[VenWolf] ${message}`, durationMs || 8000);
+        if (!settings.showLocalMessages || typeof W.ChatRoomSendLocal !== 'function') return;
+        W.ChatRoomSendLocal(`[VenWolf] ${message}`, durationMs || 8000);
     }
 
     function clampNumber(value, min, max) {
@@ -256,6 +273,64 @@
         }).then((response) => response.json());
     }
 
+    function requestText(url) {
+        if (typeof GM_xmlhttpRequest === 'function') {
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: 'GET',
+                    url,
+                    timeout: REQUEST_TIMEOUT_MS,
+                    onload: (response) => {
+                        if (response.status >= 200 && response.status < 300) resolve(response.responseText || '');
+                        else reject(new Error(`HTTP ${response.status}`));
+                    },
+                    onerror: () => reject(new Error('Request failed')),
+                    ontimeout: () => reject(new Error('Request timed out')),
+                });
+            });
+        }
+
+        return fetch(url, { cache: 'no-cache' }).then((response) => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.text();
+        });
+    }
+
+    function loadModSdk() {
+        if (W.bcModSdk && typeof W.bcModSdk.registerMod === 'function') return Promise.resolve(W.bcModSdk);
+        if (sdkLoadingPromise) return sdkLoadingPromise;
+        sdkLoadingPromise = requestText(MOD_SDK_URL).then((code) => new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.textContent = `${code}\n//# sourceURL=${MOD_SDK_URL}`;
+            (document.head || document.documentElement).appendChild(script);
+            setTimeout(() => {
+                script.remove();
+                if (W.bcModSdk && typeof W.bcModSdk.registerMod === 'function') resolve(W.bcModSdk);
+                else reject(new Error('BC Mod SDK loaded without bcModSdk'));
+            }, 0);
+        }));
+        return sdkLoadingPromise;
+    }
+
+    function registerModSdk() {
+        return loadModSdk()
+            .then((sdk) => {
+                if (bcModApi) return bcModApi;
+                bcModApi = sdk.registerMod({
+                    name: MOD_ID,
+                    fullName: 'BC VenWolf Adapter',
+                    version: VERSION,
+                    repository: 'https://github.com/QAQMOON/-BC-VenWolf-Adapter',
+                }, { allowReplace: true });
+                log('BC Mod SDK registered');
+                return bcModApi;
+            })
+            .catch((error) => {
+                console.warn(`[${SHORT}] BC Mod SDK unavailable, using fallback hooks.`, error);
+                return null;
+            });
+    }
+
     async function fireVenWolf(strength, durationMs, reason) {
         const finalStrength = Math.round(clampNumber(strength, 0, 200));
         if (!settings.enabled || finalStrength <= 0) return;
@@ -326,7 +401,7 @@
     }
 
     function playerMemberNumber() {
-        return window.Player && window.Player.MemberNumber;
+        return W.Player && W.Player.MemberNumber;
     }
 
     function sDict(message, tag, subKey) {
@@ -351,7 +426,7 @@
     }
 
     function appearanceByAssetName(assetName) {
-        const appearance = window.Player && window.Player.Appearance;
+        const appearance = W.Player && W.Player.Appearance;
         if (!Array.isArray(appearance)) return null;
         return appearance.find((item) => item && item.Asset && item.Asset.Name === assetName) || null;
     }
@@ -482,7 +557,7 @@
     function isSelfCommand(data) {
         const sender = data.Sender || sDict(data, 'SourceCharacter', 'MemberNumber');
         const senderName = data.SenderName || data.CharacterName || '';
-        return sameMember(sender, playerMemberNumber()) || (!!window.Player && senderName === window.Player.Name);
+        return sameMember(sender, playerMemberNumber()) || (!!W.Player && senderName === W.Player.Name);
     }
 
     function handleCommand(data) {
@@ -587,6 +662,23 @@
         return true;
     }
 
+    function isCommandText(text) {
+        const msg = String(text || '').trim();
+        return msg.startsWith(`/${COMMAND}`) || msg.startsWith('/venwolf');
+    }
+
+    function handleCommandText(text) {
+        if (!isCommandText(text)) return false;
+        return handleCommand({ Content: text, Sender: playerMemberNumber(), SenderName: W.Player && W.Player.Name });
+    }
+
+    function getChatInput() {
+        return document.getElementById('InputChat')
+            || document.querySelector("textarea[name='InputChat']")
+            || document.querySelector('textarea')
+            || document.querySelector("input[type='text']");
+    }
+
     function extractLocalCommand(argsLike) {
         const args = Array.prototype.slice.call(argsLike);
         for (const arg of args) {
@@ -597,16 +689,60 @@
     }
 
     function registerCommand() {
-        if (!Array.isArray(window.Commands)) return;
-        if (window.Commands.some((item) => item.Tag === COMMAND)) return;
-        window.Commands.push({
+        if (!Array.isArray(W.Commands)) return;
+        if (W.Commands.some((item) => item.Tag === COMMAND)) return;
+        W.Commands.push({
             Tag: COMMAND,
             Description: 'VenWolf adapter. Use /vw help.',
             Action: function () {
                 const raw = extractLocalCommand(arguments);
-                handleCommand({ Content: raw, Sender: playerMemberNumber(), SenderName: window.Player && window.Player.Name });
+                handleCommandText(raw);
             },
         });
+    }
+
+    function patchBC() {
+        if (patched || !bcModApi) return patched;
+        if (typeof W.CommandParse !== 'function' && typeof W.ChatRoomSendChat !== 'function' && typeof W.ChatRoomMessage !== 'function') return false;
+        patched = true;
+
+        if (typeof W.CommandParse === 'function') {
+            bcModApi.hookFunction('CommandParse', 10000, (args, next) => {
+                const text = String(args && args[0] || '');
+                if (handleCommandText(text)) return true;
+                return next(args);
+            });
+        }
+
+        if (typeof W.ChatRoomSendChat === 'function') {
+            bcModApi.hookFunction('ChatRoomSendChat', 10000, (args, next) => {
+                const input = getChatInput();
+                const text = input && input.value || '';
+                if (handleCommandText(text)) {
+                    if (input) input.value = '';
+                    return undefined;
+                }
+                return next(args);
+            });
+        }
+
+        if (typeof W.ChatRoomMessage === 'function') {
+            bcModApi.hookFunction('ChatRoomMessage', 0, (args, next) => {
+                const result = next(args);
+                onChatRoomMessage(args && args[0]);
+                return result;
+            });
+            eventPatched = true;
+        }
+
+        return true;
+    }
+
+    function registerSocketListener() {
+        if (socketListenerRegistered || !W.ServerSocket || typeof W.ServerSocket.on !== 'function') return false;
+        socketListenerRegistered = true;
+        W.ServerSocket.on('ChatRoomMessage', onChatRoomMessage);
+        return true;
     }
 
     function onChatRoomMessage(data) {
@@ -623,14 +759,21 @@
     function waitForBC() {
         return new Promise((resolve) => {
             const start = Date.now();
+            let warned = false;
             const timer = setInterval(() => {
-                if (window.ServerSocket && typeof window.ServerSocket.on === 'function' && window.Player && Array.isArray(window.Commands)) {
+                if (W.Player && (
+                    typeof W.CommandParse === 'function'
+                    || typeof W.ChatRoomSendChat === 'function'
+                    || typeof W.ChatRoomMessage === 'function'
+                    || (W.ServerSocket && typeof W.ServerSocket.on === 'function')
+                    || Array.isArray(W.Commands)
+                )) {
                     clearInterval(timer);
                     resolve();
                     return;
                 }
-                if (Date.now() - start > 60000) {
-                    clearInterval(timer);
+                if (!warned && Date.now() - start > 60000) {
+                    warned = true;
                     console.warn(`[${SHORT}] BC runtime was not ready after 60s.`);
                 }
             }, 500);
@@ -639,8 +782,10 @@
 
     async function main() {
         await waitForBC();
+        await registerModSdk();
+        patchBC();
         registerCommand();
-        window.ServerSocket.on('ChatRoomMessage', onChatRoomMessage);
+        if (!eventPatched) registerSocketListener();
         notify(`adapter ready v${VERSION}; client=${settings.clientId}; url=${settings.baseUrl}`, 8000);
     }
 

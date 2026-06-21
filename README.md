@@ -7,6 +7,7 @@ It listens inside the Bondage Club page, maps BC activities to VenWolf Game API 
 ## What It Does
 
 - Runs in Bondage Club through Tampermonkey.
+- Registers through BC Mod SDK when available, so `/vw` commands are parsed by BC instead of being sent as normal chat.
 - Listens for BC activity, shock, Portal Panties, and selected item state events.
 - Converts matched events into VenWolf fire actions.
 - Calls:
@@ -88,6 +89,16 @@ Then push to GitHub. Userscript managers use the version number to decide whethe
 /vw dry on|off
 /vw test [strength] [ms]
 ```
+
+## Troubleshooting
+
+If commands do not respond in BC, make sure the userscript is updated to `0.1.2` or newer. The adapter should show a local message after entering a room:
+
+```text
+[VenWolf] adapter ready v0.1.2; client=all; url=http://127.0.0.1:8920
+```
+
+Version `0.1.2` uses `unsafeWindow` plus BC Mod SDK hooks for `CommandParse`, `ChatRoomSendChat`, and `ChatRoomMessage`, with the old socket listener kept as a fallback.
 
 ## Safe Test Flow
 
