@@ -1,9 +1,13 @@
 // ==UserScript==
 // @name         BC VenWolf Adapter
 // @namespace    VenWolf-BondageClub
-// @version      0.1.0
+// @version      0.1.1
 // @description  Send Bondage Club activity events to VenWolf/DG-Lab Game API.
 // @author       QAQMOON
+// @homepageURL  https://github.com/QAQMOON/-BC-VenWolf-Adapter
+// @supportURL   https://github.com/QAQMOON/-BC-VenWolf-Adapter/issues
+// @updateURL    https://raw.githubusercontent.com/QAQMOON/-BC-VenWolf-Adapter/main/bc-venwolf-adapter.user.js
+// @downloadURL  https://raw.githubusercontent.com/QAQMOON/-BC-VenWolf-Adapter/main/bc-venwolf-adapter.user.js
 // @match        https://bondageprojects.elementfx.com/*
 // @match        https://www.bondageprojects.elementfx.com/*
 // @match        https://bondage-europe.com/*
@@ -18,7 +22,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '0.1.0';
+    const VERSION = '0.1.1';
     const SHORT = 'BC-VenWolf';
     const STORE_KEY = 'BC_VenWolf_Adapter_v1';
     const COMMAND = 'vw';

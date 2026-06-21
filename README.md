@@ -29,8 +29,9 @@ allowBroadcastToClients: true
 
 ## Install
 
-1. Install Tampermonkey.
-2. Add `bc-venwolf-adapter.user.js` as a userscript.
+1. Install Tampermonkey or Violentmonkey.
+2. Install the production script:
+   `https://github.com/QAQMOON/-BC-VenWolf-Adapter/raw/main/bc-venwolf-adapter.user.js`
 3. Start VenWolf.
 4. Connect one or more DG-Lab/Coyote clients in VenWolf.
 5. Open Bondage Club and enter a room.
@@ -40,6 +41,31 @@ allowBroadcastToClients: true
 /vw status
 /vw test 20 3000
 ```
+
+## Install Page
+
+This repository includes a GitHub Pages install page in `index.html`.
+
+After enabling GitHub Pages for branch `main` and folder `/root`, open:
+
+```text
+https://qaqmoon.github.io/-BC-VenWolf-Adapter/
+```
+
+## Automatic Updates
+
+The userscript includes `@updateURL` and `@downloadURL`, both pointing to the raw script on GitHub:
+
+```text
+https://raw.githubusercontent.com/QAQMOON/-BC-VenWolf-Adapter/main/bc-venwolf-adapter.user.js
+```
+
+When publishing a new version, update both:
+
+- `@version` in the userscript metadata.
+- `const VERSION` inside the script.
+
+Then push to GitHub. Userscript managers use the version number to decide whether to update.
 
 ## Commands
 
