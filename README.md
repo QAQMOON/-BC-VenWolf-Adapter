@@ -1,26 +1,32 @@
 # BC VenWolf Adapter
 
-Tampermonkey userscript for connecting Bondage Club activity events to VenWolf.
+Bondage Club -> VenWolf userscript bridge.
 
-It listens inside the Bondage Club page, maps BC activities to VenWolf Game API calls, and broadcasts to all connected DG-Lab/Coyote clients by default.
-
-## What It Does
-
-- Runs in Bondage Club through Tampermonkey.
-- Registers through BC Mod SDK when available, so `/vw` commands are parsed by BC instead of being sent as normal chat.
-- Listens for BC activity, shock, Portal Panties, and selected item state events.
-- Converts matched events into VenWolf fire actions.
-- Calls:
+The adapter listens to Bondage Club room events, maps them to VenWolf fire actions,
+and sends them to local VenWolf through the Game API.
 
 ```text
-POST /api/v2/game/all/action/fire
+Bondage Club event -> userscript rule -> VenWolf API -> DG-Lab/Coyote output
 ```
 
-Default target is `clientId=all`, so VenWolf broadcasts to all connected clients.
+## Install
 
-## Requirements
+1. Install Tampermonkey, Violentmonkey, or another userscript manager.
+2. Install the production script:
+   [bc-venwolf-adapter.user.js](https://github.com/QAQMOON/-BC-VenWolf-Adapter/raw/main/bc-venwolf-adapter.user.js)
+3. Start VenWolf at `http://127.0.0.1:8920`.
+4. Connect your Coyote/DG-Lab client in VenWolf.
+5. Open Bondage Club and enter a room.
 
-VenWolf must be running and configured to allow broadcast:
+GitHub Pages install page:
+
+```text
+https://qaqmoon.github.io/-BC-VenWolf-Adapter/
+```
+
+## VenWolf Setup
+
+For the default `clientId=all` broadcast mode, VenWolf needs broadcast enabled:
 
 ```yaml
 host: "0.0.0.0"
@@ -28,45 +34,32 @@ port: 8920
 allowBroadcastToClients: true
 ```
 
-## Install
+## Quick Test
 
-1. Install Tampermonkey or Violentmonkey.
-2. Install the production script:
-   [https://github.com/QAQMOON/-BC-VenWolf-Adapter/raw/main/bc-venwolf-adapter.user.js](https://github.com/QAQMOON/-BC-VenWolf-Adapter/raw/main/bc-venwolf-adapter.user.js)
-3. Start VenWolf.
-4. Connect one or more DG-Lab/Coyote clients in VenWolf.
-5. Open Bondage Club and enter a room.
-6. Run:
+In the BC chat box:
 
 ```text
 /vw status
 /vw test 20 3000
 ```
 
-## Install Page
-
-This repository includes a GitHub Pages install page in `index.html`.
-
-After enabling GitHub Pages for branch `main` and folder `/root`, open:
+If `/vw test` works but BC actions do not trigger output, enable event diagnostics:
 
 ```text
-https://qaqmoon.github.io/-BC-VenWolf-Adapter/
+/vw debug on
+/vw status
 ```
 
-## Automatic Updates
+`status` shows:
 
-The userscript includes `@updateURL` and `@downloadURL`, both pointing to the raw script on GitHub:
+- `seen`: BC events captured by the adapter
+- `sent`: events that matched rules and were sent to VenWolf
+- `ok`: successful VenWolf API calls
+- `failed`: failed VenWolf API calls
+- `last`: last captured event summary
 
-```text
-https://raw.githubusercontent.com/QAQMOON/-BC-VenWolf-Adapter/main/bc-venwolf-adapter.user.js
-```
-
-When publishing a new version, update both:
-
-- `@version` in the userscript metadata.
-- `const VERSION` inside the script.
-
-Then push to GitHub. Userscript managers use the version number to decide whether to update.
+If `seen` increases but `sent` does not, add or tune rules. If `seen` does not
+increase, add or tune an event hook/detector.
 
 ## Commands
 
@@ -87,33 +80,57 @@ Then push to GitHub. Userscript managers use the version number to decide whethe
 /vw override on|off
 /vw onother on|off
 /vw dry on|off
+/vw debug on|off
 /vw test [strength] [ms]
 ```
 
-## Troubleshooting
+## Event Coverage
 
-If commands do not respond in BC, make sure the userscript is updated to `0.1.2` or newer. The adapter should show a local message after entering a room:
+Current event coverage is maintained in [`events/bc-event-catalog.json`](events/bc-event-catalog.json).
+
+Imported from `QAQMOON/XToys-Config` so far:
+
+- BC activity events, including `OnSelf` and `OnOther`
+- Item equip/remove events
+- Toy state events for vibration, inflation, and shock-like properties
+- Portal Panties function activity events
+- Custom text item events:
+  - `LactationPump`
+  - `NippleSuctionCups`
+  - `PlateClamps`
+  - `ButtPump`
+- Local BC hooks:
+  - `VibratorModePublish`
+  - `ExtendedItemSetOption`
+  - `InventoryWear`
+  - `InventoryRemove`
+  - `PropertyShockPublishAction`
+- Auto-response inspired presets:
+  - orgasm
+  - hard spanking
+  - deep kissing
+
+## Maintaining Events
+
+Use `events/` as the BC event maintenance area:
+
+- [`events/README.md`](events/README.md) explains the workflow.
+- [`events/bc-event-catalog.json`](events/bc-event-catalog.json) records known inputs,
+  hooks, custom items, and rule presets.
+
+The userscript is still a single installable file, so release changes must be mirrored
+in `bc-venwolf-adapter.user.js`.
+
+Release checklist:
 
 ```text
-[VenWolf] adapter ready v0.1.2; client=all; url=http://127.0.0.1:8920
+node --check bc-venwolf-adapter.user.js
 ```
 
-Version `0.1.2` uses `unsafeWindow` plus BC Mod SDK hooks for `CommandParse`, `ChatRoomSendChat`, and `ChatRoomMessage`, with the old socket listener kept as a fallback.
+Then update both version fields:
 
-## Safe Test Flow
-
-Use dry-run mode first:
-
-```text
-/vw dry on
-```
-
-Trigger BC activities and check the local BC messages/browser console. Then enable real requests:
-
-```text
-/vw dry off
-/vw test 20 3000
-```
+- userscript metadata `@version`
+- internal `const VERSION`
 
 ## Defaults
 
@@ -126,10 +143,7 @@ Trigger BC activities and check the local BC messages/browser console. Then enab
 
 ## Notes
 
-This adapter does not control BC characters from VenWolf. It is a one-way bridge:
+This is a one-way bridge. It does not control BC characters from VenWolf.
 
-```text
-BC behavior -> VenWolf API -> DG-Lab/Coyote clients
-```
-
-The script uses `GM_xmlhttpRequest` to avoid browser CORS blocking requests from the BC page to a local VenWolf server.
+The script uses `GM_xmlhttpRequest` so BC pages can call the local VenWolf server
+without browser CORS blocking.

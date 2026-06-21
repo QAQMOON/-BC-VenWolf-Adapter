@@ -1,0 +1,157 @@
+{
+  "version": "0.1.4",
+  "upstreamReference": "QAQMOON/XToys-Config",
+  "bodyZones": {
+    "ItemMouth": 85,
+    "ItemEar": 90,
+    "ItemVulva": 100,
+    "ItemVulvaPiercings": 95,
+    "ItemBreast": 75,
+    "ItemNipples": 80,
+    "ItemButt": 65,
+    "ItemLegs": 50,
+    "ItemTorso": 45,
+    "ItemPelvis": 60,
+    "ItemArms": 40,
+    "ItemFeet": 35,
+    "ItemBoots": 30,
+    "ItemHands": 30,
+    "ItemHead": 55,
+    "ItemNeck": 70
+  },
+  "eventInputs": [
+    {
+      "name": "ChatRoom Activity",
+      "source": "ChatRoomMessage / ServerSocket",
+      "contentType": "Activity",
+      "direction": "TargetCharacter means OnSelf, SourceCharacter means OnOther"
+    },
+    {
+      "name": "Item Equip",
+      "source": "ChatRoomMessage",
+      "contentType": "Action",
+      "contents": ["ActionUse", "ActionRemove"]
+    },
+    {
+      "name": "Toy State",
+      "source": "ChatRoomMessage + local hooks",
+      "contentType": "Action",
+      "properties": ["Intensity", "VibrationLevel", "InflateLevel", "InflationLevel", "ShockLevel"]
+    },
+    {
+      "name": "Portal Panties",
+      "source": "ChatRoomMessage",
+      "asset": "PortalPanties",
+      "contents": [
+        "PortalLinkFunctionActivityCaress",
+        "PortalLinkFunctionActivityKiss",
+        "PortalLinkFunctionActivityMasturbateHand",
+        "PortalLinkFunctionActivitySlap",
+        "PortalLinkFunctionActivityMasturbateTongue"
+      ]
+    },
+    {
+      "name": "Custom Text Items",
+      "source": "ChatRoomMessage",
+      "items": ["LactationPump", "NippleSuctionCups", "PlateClamps", "ButtPump"]
+    }
+  ],
+  "hooks": [
+    "VibratorModePublish",
+    "ExtendedItemSetOption",
+    "InventoryWear",
+    "InventoryRemove",
+    "PropertyShockPublishAction"
+  ],
+  "rulePresets": [
+    {
+      "name": "item add/remove",
+      "type": "OnSelf",
+      "intensity": 12,
+      "durationMs": 6000,
+      "groups": ["*"],
+      "actions": ["ItemAdded", "ItemRemoved"],
+      "items": ["*"]
+    },
+    {
+      "name": "toy state",
+      "type": "OnSelf",
+      "intensity": 20,
+      "durationMs": 12000,
+      "groups": ["*"],
+      "actions": ["ToyEvent", "Vibration", "Inflation"],
+      "items": ["*"]
+    },
+    {
+      "name": "orgasm",
+      "type": "OnSelf",
+      "intensity": 75,
+      "durationMs": 30000,
+      "groups": ["*"],
+      "actions": ["Orgasm", "RuinedOrgasm", "EdgeExplode", "Edge"],
+      "items": ["*"]
+    },
+    {
+      "name": "hard spanking",
+      "type": "OnSelf",
+      "intensity": 70,
+      "durationMs": 20000,
+      "groups": ["ItemButt", "ItemVulva", "ItemVulvaPiercings"],
+      "actions": ["Spank", "SpankItem", "Slap", "Kick"],
+      "items": ["*"]
+    },
+    {
+      "name": "deep kissing",
+      "type": "OnSelf",
+      "intensity": 40,
+      "durationMs": 20000,
+      "groups": ["ItemMouth", "ItemEar"],
+      "actions": ["FrenchKiss", "Kiss", "Lick", "Nibble", "Bite"],
+      "items": ["*"]
+    },
+    {
+      "name": "penetration on other",
+      "type": "OnOther",
+      "intensity": 25,
+      "durationMs": 20000,
+      "groups": ["*"],
+      "actions": ["PenetrateSlow"],
+      "items": ["*"]
+    },
+    {
+      "name": "fast penetration on other",
+      "type": "OnOther",
+      "intensity": 30,
+      "durationMs": 40000,
+      "groups": ["*"],
+      "actions": ["PenetrateFast"],
+      "items": ["*"]
+    }
+  ],
+  "customTextItems": [
+    {
+      "slot": "ItemNipples",
+      "item": "LactationPump",
+      "match": "LactationPumpPower",
+      "levels": ["ToOff", "LowSuction", "MediumSuction", "HighSuction", "MaximumSuction"]
+    },
+    {
+      "slot": "ItemNipples",
+      "item": "NippleSuctionCups",
+      "match": "NipSuc",
+      "levels": ["ToLoose", "ToLight", "ToMedium", "ToHeavy", "ToMaximum"]
+    },
+    {
+      "slot": "ItemNipples",
+      "item": "PlateClamps",
+      "match": "ItemNipplesPlate",
+      "levels": ["ClampsLoose", "ClampsLight", "ClampsMedium", "ClampsHeavy", "ClampsTight"]
+    },
+    {
+      "slot": "ItemButt",
+      "item": "ButtPump",
+      "match": "BPumps",
+      "levels": ["ToEmpty", "ToLight", "ToInflated", "ToBloated", "ToMaximum"]
+    }
+  ]
+}

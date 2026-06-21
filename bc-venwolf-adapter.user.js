@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BC VenWolf Adapter
 // @namespace    VenWolf-BondageClub
-// @version      0.1.3
+// @version      0.1.4
 // @description  Send Bondage Club activity events to VenWolf/DG-Lab Game API.
 // @author       QAQMOON
 // @homepageURL  https://github.com/QAQMOON/-BC-VenWolf-Adapter
@@ -30,7 +30,7 @@
     'use strict';
 
     const W = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const VERSION = '0.1.3';
+    const VERSION = '0.1.4';
     const SHORT = 'BC-VenWolf';
     const MOD_ID = 'BCVenWolfAdapter';
     const MOD_SDK_URL = 'https://cdn.jsdelivr.net/npm/bondage-club-mod-sdk@1.2.0/dist/bcmodsdk.js';
@@ -84,6 +84,9 @@
     const ACTION_RULES = [
         rule('OnSelf', 12, 6000, ['*'], ['ItemAdded', 'ItemRemoved']),
         rule('OnSelf', 20, 12000, ['*'], ['ToyEvent', 'Vibration', 'Inflation']),
+        rule('OnSelf', 75, 30000, ['*'], ['Orgasm', 'RuinedOrgasm', 'EdgeExplode', 'Edge']),
+        rule('OnSelf', 70, 20000, ['ItemButt', 'ItemVulva', 'ItemVulvaPiercings'], ['Spank', 'SpankItem', 'Slap', 'Kick']),
+        rule('OnSelf', 40, 20000, ['ItemMouth', 'ItemEar'], ['FrenchKiss', 'Kiss', 'Lick', 'Nibble', 'Bite']),
         rule('OnSelf', 25, 30000, ['ItemMouth'], ['Kiss', 'FrenchKiss', 'Lick', 'Caress', 'Grope', 'Pull', 'Massage', 'Rub']),
         rule('OnSelf', 25, 30000, ['ItemEar'], ['Kiss', 'Nibble', 'Lick', 'Bite', 'Caress', 'Grope', 'Pull', 'Massage', 'Rub']),
         rule('OnSelf', 25, 30000, ['ItemVulva', 'ItemVulvaPiercings', 'ItemBreast', 'ItemNipples', 'ItemButt', 'ItemMouth', 'ItemEar'], ['Caress', 'Kiss', 'Grope', 'Pull', 'Massage', 'Lick', 'Rub']),
@@ -694,7 +697,7 @@
         const content = data.Content || '';
         handleCustomLevel('ItemNipples', 'LactationPump', content, /LactationPumpPower/i, /ToOff/i, /LowSuction/i, /MediumSuction/i, /HighSuction/i, /MaximumSuction/i);
         handleCustomLevel('ItemNipples', 'NippleSuctionCups', content, /NipSuc/i, /ToLoose/i, /ToLight/i, /ToMedium/i, /ToHeavy/i, /ToMaximum/i);
-        handleCustomLevel('ItemNipples', 'PlateClamps', content, /ItemNipplesPlate/i, /ClampsLoose/i, /ClampsLoose/i, /ClampsLoose/i, /ClampsLoose/i, /ClampsTight/i);
+        handleCustomLevel('ItemNipples', 'PlateClamps', content, /ItemNipplesPlate/i, /ClampsLoose/i, /ClampsLight/i, /ClampsMedium/i, /ClampsHeavy/i, /ClampsTight/i);
         handleCustomLevel('ItemButt', 'ButtPump', content, /BPumps/i, /ToEmpty/i, /ToLight/i, /ToInflated/i, /ToBloated/i, /ToMaximum/i);
     }
 
