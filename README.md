@@ -32,7 +32,7 @@ allowBroadcastToClients: true
 
 1. Install Tampermonkey or Violentmonkey.
 2. Install the production script:
-   `https://github.com/QAQMOON/-BC-VenWolf-Adapter/raw/main/bc-venwolf-adapter.user.js`
+   [https://github.com/QAQMOON/-BC-VenWolf-Adapter/raw/main/bc-venwolf-adapter.user.js](https://github.com/QAQMOON/-BC-VenWolf-Adapter/raw/main/bc-venwolf-adapter.user.js)
 3. Start VenWolf.
 4. Connect one or more DG-Lab/Coyote clients in VenWolf.
 5. Open Bondage Club and enter a room.
