@@ -12,7 +12,7 @@ This repository is the install entry for BC players. It includes:
 Bondage Club event -> userscript rule -> local VenWolf -> DG-Lab/Coyote output
 ```
 
-## Quick Install For Friends
+## Quick Install
 
 ### 1. Install VenWolf
 
