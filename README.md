@@ -1,22 +1,39 @@
 # BC VenWolf Adapter
 
-Bondage Club -> VenWolf userscript bridge.
+Bondage Club -> VenWolf -> DG-Lab/Coyote feedback bridge.
 
-The adapter listens to Bondage Club room events, maps them to VenWolf fire actions,
-and sends them to local VenWolf through the Game API.
+This repository is the install entry for BC players. It includes:
+
+- the Bondage Club userscript adapter
+- a VenWolf Windows portable download link
+- setup and test commands
 
 ```text
-Bondage Club event -> userscript rule -> VenWolf API -> DG-Lab/Coyote output
+Bondage Club event -> userscript rule -> local VenWolf -> DG-Lab/Coyote output
 ```
 
-## Install
+## Quick Install For Friends
 
-1. Install Tampermonkey, Violentmonkey, or another userscript manager.
-2. Install the production script:
-   [bc-venwolf-adapter.user.js](https://github.com/QAQMOON/-BC-VenWolf-Adapter/raw/main/bc-venwolf-adapter.user.js)
-3. Start VenWolf at `http://127.0.0.1:8920`.
-4. Connect your Coyote/DG-Lab client in VenWolf.
-5. Open Bondage Club and enter a room.
+### 1. Install VenWolf
+
+Download the Windows portable package:
+
+[VenWolf-windows-portable.zip](https://github.com/QAQMOON/-BC-VenWolf-Adapter/releases/download/venwolf-bundle-2026-06-22/VenWolf-windows-portable.zip)
+
+Then:
+
+1. Extract the zip.
+2. Double-click `start.bat`.
+3. Open `http://127.0.0.1:8920`.
+4. Connect your Coyote/DG-Lab device in VenWolf.
+
+If Windows Firewall asks for permission, allow local/private network access.
+
+### 2. Install The BC Userscript
+
+Install Tampermonkey or Violentmonkey first, then click:
+
+[Install bc-venwolf-adapter.user.js](https://github.com/QAQMOON/-BC-VenWolf-Adapter/raw/main/bc-venwolf-adapter.user.js)
 
 GitHub Pages install page:
 
@@ -24,9 +41,38 @@ GitHub Pages install page:
 https://qaqmoon.github.io/-BC-VenWolf-Adapter/
 ```
 
+### 3. Test In Bondage Club
+
+Open Bondage Club, enter a room, then type in the BC chat box:
+
+```text
+/vw status
+/vw test 20 3000
+```
+
+If `/vw test` works, VenWolf and the adapter can talk to each other.
+
+If `/vw test` works but BC actions do not trigger output, enable diagnostics:
+
+```text
+/vw debug on
+/vw status
+```
+
+## What Each Part Does
+
+This repository has two user-facing parts:
+
+- **BC VenWolf Adapter**: the userscript installed in the browser. It listens to Bondage Club room events.
+- **VenWolf**: the local control console. It receives adapter events and sends output to DG-Lab/Coyote.
+
+Your friend should start VenWolf before using the BC adapter.
+
 ## VenWolf Setup
 
-For the default `clientId=all` broadcast mode, VenWolf needs broadcast enabled:
+For the default `clientId=all` broadcast mode, VenWolf needs broadcast enabled.
+
+In VenWolf config:
 
 ```yaml
 host: "0.0.0.0"
@@ -34,32 +80,11 @@ port: 8920
 allowBroadcastToClients: true
 ```
 
-## Quick Test
+The bundled Windows package already includes the current VenWolf UI and local server files. If you want to maintain VenWolf source code, use:
 
-In the BC chat box:
+[QAQMOON/VenWolf](https://github.com/QAQMOON/VenWolf)
 
-```text
-/vw status
-/vw test 20 3000
-```
-
-If `/vw test` works but BC actions do not trigger output, enable event diagnostics:
-
-```text
-/vw debug on
-/vw status
-```
-
-`status` shows:
-
-- `seen`: BC events captured by the adapter
-- `sent`: events that matched rules and were sent to VenWolf
-- `ok`: successful VenWolf API calls
-- `failed`: failed VenWolf API calls
-- `last`: last captured event summary
-
-If `seen` increases but `sent` does not, add or tune rules. If `seen` does not
-increase, add or tune an event hook/detector.
+Friends who only want to play do not need to read that source repository.
 
 ## Commands
 
@@ -83,6 +108,20 @@ increase, add or tune an event hook/detector.
 /vw debug on|off
 /vw test [strength] [ms]
 ```
+
+## Status Meaning
+
+`/vw status` shows:
+
+- `seen`: BC events captured by the adapter
+- `sent`: events that matched rules and were sent to VenWolf
+- `ok`: successful VenWolf API calls
+- `failed`: failed VenWolf API calls
+- `last`: last captured event summary
+
+If `seen` increases but `sent` does not, the adapter captured the BC event but no rule matched.
+
+If `seen` does not increase, the adapter did not capture that event yet and needs a new hook/detector.
 
 ## Event Coverage
 
@@ -115,11 +154,9 @@ Imported from `QAQMOON/XToys-Config` so far:
 Use `events/` as the BC event maintenance area:
 
 - [`events/README.md`](events/README.md) explains the workflow.
-- [`events/bc-event-catalog.json`](events/bc-event-catalog.json) records known inputs,
-  hooks, custom items, and rule presets.
+- [`events/bc-event-catalog.json`](events/bc-event-catalog.json) records known inputs, hooks, custom items, and rule presets.
 
-The userscript is still a single installable file, so release changes must be mirrored
-in `bc-venwolf-adapter.user.js`.
+The userscript is still a single installable file, so release changes must be mirrored in `bc-venwolf-adapter.user.js`.
 
 Release checklist:
 
@@ -145,5 +182,4 @@ Then update both version fields:
 
 This is a one-way bridge. It does not control BC characters from VenWolf.
 
-The script uses `GM_xmlhttpRequest` so BC pages can call the local VenWolf server
-without browser CORS blocking.
+The script uses `GM_xmlhttpRequest` so BC pages can call the local VenWolf server without browser CORS blocking.

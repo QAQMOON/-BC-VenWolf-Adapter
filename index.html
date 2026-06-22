@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BC VenWolf Adapter - Userscript Installation</title>
+  <title>BC VenWolf Adapter - Install</title>
   <style>
     :root {
       color-scheme: light dark;
@@ -167,10 +167,25 @@
 <body>
   <main>
     <h1>BC VenWolf Adapter</h1>
-    <p>Install the userscript that bridges Bondage Club activity events to VenWolf broadcast control.</p>
+    <p>Install VenWolf and the userscript that bridges Bondage Club activity events to DG-Lab/Coyote output.</p>
 
     <section class="panel">
-      <h2>Userscript Installation</h2>
+      <h2>1. Download VenWolf</h2>
+      <p>VenWolf is the local control console. Start it before using the Bondage Club adapter.</p>
+      <div class="install">
+        <a class="button" href="https://github.com/QAQMOON/-BC-VenWolf-Adapter/releases/download/venwolf-bundle-2026-06-22/VenWolf-windows-portable.zip">Download VenWolf Windows portable</a>
+        <a class="button secondary" href="https://github.com/QAQMOON/VenWolf">VenWolf source repository</a>
+      </div>
+      <ol>
+        <li>Extract <code>VenWolf-windows-portable.zip</code>.</li>
+        <li>Double-click <code>start.bat</code>.</li>
+        <li>Open <code>http://127.0.0.1:8920</code>.</li>
+        <li>Connect your Coyote/DG-Lab device in VenWolf.</li>
+      </ol>
+    </section>
+
+    <section class="panel">
+      <h2>2. Install Userscript</h2>
       <p>Install Tampermonkey, Violentmonkey, or another userscript manager, then use the production script below.</p>
       <div class="install">
         <a class="button" href="https://github.com/QAQMOON/-BC-VenWolf-Adapter/raw/main/bc-venwolf-adapter.user.js">Install production version</a>
@@ -193,7 +208,7 @@
     </section>
 
     <section class="panel">
-      <h2>Quick Start</h2>
+      <h2>3. Quick Test</h2>
       <div class="grid">
         <div>
           <p>VenWolf config should allow broadcast control:</p>
@@ -204,9 +219,8 @@ allowBroadcastToClients: true</code></pre>
         <div>
           <p>After entering a Bondage Club room, run:</p>
           <pre><code>/vw status
-/vw dry on
 /vw test 20 3000
-/vw dry off</code></pre>
+/vw debug on</code></pre>
         </div>
       </div>
       <p class="note">Version 0.1.4 registers commands through BC Mod SDK when available, listens for activity/item/toy-state events, and keeps diagnostics in <code>/vw status</code>. After entering a room you should see <code>[VenWolf] adapter ready v0.1.4</code>; then <code>/vw status</code> should be handled locally.</p>
