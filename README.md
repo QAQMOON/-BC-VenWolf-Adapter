@@ -93,7 +93,8 @@ control at any time from the VenWolf remote share panel.
 
 Relay server code is in [`relay-server/`](relay-server/). It is not required for
 normal local use. Deploy it to a public Node.js host before using remote share
-over the internet.
+over the internet. The easiest path is Render Blueprint with [`render.yaml`](render.yaml);
+more options are in [`relay-server/DEPLOY.md`](relay-server/DEPLOY.md).
 
 ## What Each Part Does
 

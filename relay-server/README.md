@@ -23,9 +23,11 @@ Default URL:
 http://127.0.0.1:8787
 ```
 
-For real remote use, deploy this folder to a public Node.js host such as a VPS,
-Render, Railway, or Fly.io, then use the public `https://...` URL in VenWolf and
-the BC userscript.
+For real remote use, deploy this folder to a public Node.js host, then use the
+public `https://...` URL in VenWolf and the BC userscript.
+
+See [`DEPLOY.md`](DEPLOY.md) for Render, Docker/VPS, Railway, Fly.io, and Koyeb
+deployment notes.
 
 ## API
 

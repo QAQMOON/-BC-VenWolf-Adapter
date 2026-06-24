@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: bc-venwolf-relay
+    runtime: node
+    rootDir: relay-server
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: SESSION_TTL_MS
+        value: 3600000
+      - key: MAX_SESSION_TTL_MS
+        value: 86400000
+      - key: ACK_TIMEOUT_MS
+        value: 5000
+      - key: MIN_FIRE_INTERVAL_MS
+        value: 100
+      - key: CODE_LENGTH
+        value: 6
