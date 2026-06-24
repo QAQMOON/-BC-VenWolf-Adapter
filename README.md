@@ -6,10 +6,17 @@ This repository is the install entry for BC players. It includes:
 
 - the Bondage Club userscript adapter
 - a VenWolf Windows portable download link
+- an optional short-code relay for remote sharing
 - setup and test commands
 
 ```text
 Bondage Club event -> userscript rule -> local VenWolf -> DG-Lab/Coyote output
+```
+
+Remote sharing:
+
+```text
+B Bondage Club event -> Relay share code -> A VenWolf -> A DG-Lab/Coyote output
 ```
 
 ## Quick Install
@@ -18,7 +25,7 @@ Bondage Club event -> userscript rule -> local VenWolf -> DG-Lab/Coyote output
 
 Download the Windows portable package:
 
-[VenWolf-windows-portable.zip](https://github.com/QAQMOON/-BC-VenWolf-Adapter/releases/download/venwolf-bundle-2026-06-22/VenWolf-windows-portable.zip)
+[VenWolf-windows-portable.zip](https://github.com/QAQMOON/-BC-VenWolf-Adapter/releases/download/venwolf-bundle-2026-06-25/VenWolf-windows-portable.zip)
 
 Then:
 
@@ -59,6 +66,35 @@ If `/vw test` works but BC actions do not trigger output, enable diagnostics:
 /vw status
 ```
 
+## Remote Share Mode
+
+Remote share lets A keep the device connected locally while B sends BC event output
+through a short code.
+
+A side:
+
+1. Start VenWolf and connect the Coyote/DG-Lab device.
+2. Open `Game Connection -> BC Remote Share`.
+3. Enter the public Relay URL.
+4. Click `Create Code`.
+5. Copy the generated `/vw remote ...` command to B.
+
+B side:
+
+1. Install the BC userscript.
+2. Enter the command from A in the BC chat box:
+
+```text
+/vw remote ABC123 https://your-relay.example.com
+```
+
+After that, B's matched BC events are sent to A's VenWolf. A can stop remote
+control at any time from the VenWolf remote share panel.
+
+Relay server code is in [`relay-server/`](relay-server/). It is not required for
+normal local use. Deploy it to a public Node.js host before using remote share
+over the internet.
+
 ## What Each Part Does
 
 This repository has two user-facing parts:
@@ -96,6 +132,12 @@ Friends who only want to play do not need to read that source repository.
 /vw url http://127.0.0.1:8920
 /vw client all
 /vw client <clientId>
+/vw mode local|remote|both
+/vw relay <url>
+/vw code <shareCode>
+/vw code clear
+/vw remote <shareCode> [relayUrl]
+/vw local
 /vw max <1-200>
 /vw duration <ms>
 /vw maxduration <ms>
@@ -117,6 +159,8 @@ Friends who only want to play do not need to read that source repository.
 - `sent`: events that matched rules and were sent to VenWolf
 - `ok`: successful VenWolf API calls
 - `failed`: failed VenWolf API calls
+- `remoteOk`: successful Relay calls
+- `remoteFailed`: failed Relay calls
 - `last`: last captured event summary
 
 If `seen` increases but `sent` does not, the adapter captured the BC event but no rule matched.
@@ -173,6 +217,7 @@ Then update both version fields:
 
 - VenWolf URL: `http://127.0.0.1:8920`
 - Client ID: `all`
+- Delivery mode: `local`
 - Max fire strength: `60`
 - Max duration: `30000ms`
 - Cooldown: `900ms`

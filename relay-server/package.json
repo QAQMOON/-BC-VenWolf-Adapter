@@ -1,0 +1,17 @@
+{
+  "name": "bc-venwolf-relay-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Short-code relay for BC VenWolf Adapter remote control sessions.",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}

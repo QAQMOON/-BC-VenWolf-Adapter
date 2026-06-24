@@ -173,7 +173,7 @@
       <h2>1. Download VenWolf</h2>
       <p>VenWolf is the local control console. Start it before using the Bondage Club adapter.</p>
       <div class="install">
-        <a class="button" href="https://github.com/QAQMOON/-BC-VenWolf-Adapter/releases/download/venwolf-bundle-2026-06-22/VenWolf-windows-portable.zip">Download VenWolf Windows portable</a>
+        <a class="button" href="https://github.com/QAQMOON/-BC-VenWolf-Adapter/releases/download/venwolf-bundle-2026-06-25/VenWolf-windows-portable.zip">Download VenWolf Windows portable</a>
         <a class="button secondary" href="https://github.com/QAQMOON/VenWolf">VenWolf source repository</a>
       </div>
       <ol>
@@ -208,7 +208,29 @@
     </section>
 
     <section class="panel">
-      <h2>3. Quick Test</h2>
+      <h2>3. Remote Share</h2>
+      <p>Remote share lets A keep the device connected locally while B sends BC event output through a short Relay code.</p>
+      <div class="grid">
+        <div>
+          <p>A side:</p>
+          <ol>
+            <li>Start VenWolf and connect the device.</li>
+            <li>Open <code>Game Connection - BC Remote Share</code>.</li>
+            <li>Enter the public Relay URL and create a code.</li>
+            <li>Copy the generated command to B.</li>
+          </ol>
+        </div>
+        <div>
+          <p>B side:</p>
+          <pre><code>/vw remote ABC123 https://your-relay.example.com
+/vw status</code></pre>
+        </div>
+      </div>
+      <p class="note">Relay server code lives in <code>relay-server/</code>. Deploy it to a public Node.js host before using remote share across the internet.</p>
+    </section>
+
+    <section class="panel">
+      <h2>4. Quick Test</h2>
       <div class="grid">
         <div>
           <p>VenWolf config should allow broadcast control:</p>
@@ -223,7 +245,7 @@ allowBroadcastToClients: true</code></pre>
 /vw debug on</code></pre>
         </div>
       </div>
-      <p class="note">Version 0.1.4 registers commands through BC Mod SDK when available, listens for activity/item/toy-state events, and keeps diagnostics in <code>/vw status</code>. After entering a room you should see <code>[VenWolf] adapter ready v0.1.4</code>; then <code>/vw status</code> should be handled locally.</p>
+      <p class="note">Version 0.2.0 registers commands through BC Mod SDK when available, listens for activity/item/toy-state events, supports local/remote/both delivery modes, and keeps diagnostics in <code>/vw status</code>. After entering a room you should see <code>[VenWolf] adapter ready v0.2.0</code>; then <code>/vw status</code> should be handled locally.</p>
     </section>
 
     <section class="panel">

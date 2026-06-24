@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BC VenWolf Adapter
 // @namespace    VenWolf-BondageClub
-// @version      0.1.4
+// @version      0.2.0
 // @description  Send Bondage Club activity events to VenWolf/DG-Lab Game API.
 // @author       QAQMOON
 // @homepageURL  https://github.com/QAQMOON/-BC-VenWolf-Adapter
@@ -30,7 +30,7 @@
     'use strict';
 
     const W = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const VERSION = '0.1.4';
+    const VERSION = '0.2.0';
     const SHORT = 'BC-VenWolf';
     const MOD_ID = 'BCVenWolfAdapter';
     const MOD_SDK_URL = 'https://cdn.jsdelivr.net/npm/bondage-club-mod-sdk@1.2.0/dist/bcmodsdk.js';
@@ -48,6 +48,9 @@
         enabled: true,
         baseUrl: 'http://127.0.0.1:8920',
         clientId: 'all',
+        deliveryMode: 'local',
+        relayUrl: '',
+        shareCode: '',
         maxFireStrength: 60,
         minFireStrength: 5,
         maxDurationMs: 30000,
@@ -129,6 +132,8 @@
         lastEventKey: '',
         requestOk: 0,
         requestFailed: 0,
+        remoteOk: 0,
+        remoteFailed: 0,
         eventSeen: 0,
         eventTriggered: 0,
         lastEvent: '',
@@ -185,6 +190,14 @@
         const url = String(value || '').trim().replace(/\/+$/, '');
         if (!/^https?:\/\/.+/i.test(url)) return '';
         return url;
+    }
+
+    function normalizeShareCode(value) {
+        return String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    }
+
+    function deliveryMode() {
+        return ['local', 'remote', 'both'].includes(settings.deliveryMode) ? settings.deliveryMode : 'local';
     }
 
     function eventToKey(event) {
@@ -258,6 +271,14 @@
         const clientId = String(settings.clientId || 'all').trim() || 'all';
         if (!baseUrl) throw new Error('Invalid VenWolf base URL');
         return `${baseUrl}/api/v2/game/${encodeURIComponent(clientId)}/action/fire`;
+    }
+
+    function buildRelayFireUrl() {
+        const relayUrl = normalizeUrl(settings.relayUrl);
+        const shareCode = normalizeShareCode(settings.shareCode);
+        if (!relayUrl) throw new Error('Invalid Relay URL');
+        if (!shareCode) throw new Error('Missing remote share code');
+        return `${relayUrl}/api/v1/sessions/${encodeURIComponent(shareCode)}/fire`;
     }
 
     function sendJson(url, body) {
@@ -348,22 +369,7 @@
             });
     }
 
-    async function fireVenWolf(strength, durationMs, reason) {
-        const finalStrength = Math.round(clampNumber(strength, 0, 200));
-        if (!settings.enabled || finalStrength <= 0) return;
-
-        const payload = {
-            strength: finalStrength,
-            time: capDuration(durationMs),
-            override: settings.override === true,
-        };
-        if (settings.pulseId) payload.pulseId = settings.pulseId;
-
-        if (settings.dryRun) {
-            notify(`dry-run ${reason}: strength=${payload.strength}, time=${payload.time}, client=${settings.clientId}`, 5000);
-            return;
-        }
-
+    async function sendLocalFire(payload) {
         const url = buildFireUrl();
         log(`POST ${url}`, payload);
         let result;
@@ -379,6 +385,73 @@
             throw new Error(result && result.message ? result.message : 'VenWolf API returned a failure response');
         }
         runtime.requestOk++;
+        return result;
+    }
+
+    async function sendRemoteFire(payload, reason) {
+        const url = buildRelayFireUrl();
+        const body = {
+            ...payload,
+            meta: {
+                source: 'bc-venwolf-adapter',
+                version: VERSION,
+                reason,
+                memberNumber: playerMemberNumber(),
+                event: runtime.lastEvent || '',
+            },
+        };
+        log(`POST ${url}`, body);
+        let result;
+        try {
+            result = await sendJson(url, body);
+        } catch (error) {
+            runtime.requestFailed++;
+            runtime.remoteFailed++;
+            throw error;
+        }
+
+        if (!result || (result.ok !== true && result.status !== 1)) {
+            runtime.requestFailed++;
+            runtime.remoteFailed++;
+            const relayMessage = result && result.error && result.error.message || result && result.message;
+            throw new Error(relayMessage || 'Relay returned a failure response');
+        }
+        runtime.requestOk++;
+        runtime.remoteOk++;
+        return result;
+    }
+
+    async function fireVenWolf(strength, durationMs, reason) {
+        const finalStrength = Math.round(clampNumber(strength, 0, 200));
+        if (!settings.enabled || finalStrength <= 0) return;
+
+        const payload = {
+            strength: finalStrength,
+            time: capDuration(durationMs),
+            override: settings.override === true,
+        };
+        if (settings.pulseId) payload.pulseId = settings.pulseId;
+
+        const mode = deliveryMode();
+
+        if (settings.dryRun) {
+            notify(`dry-run ${reason}: mode=${mode}, strength=${payload.strength}, time=${payload.time}, client=${settings.clientId}, code=${settings.shareCode || 'none'}`, 5000);
+            return;
+        }
+
+        const tasks = [];
+        if (mode === 'local' || mode === 'both') tasks.push(sendLocalFire(payload));
+        if (mode === 'remote' || mode === 'both') tasks.push(sendRemoteFire(payload, reason));
+        if (tasks.length === 0) return;
+
+        const results = await Promise.allSettled(tasks);
+        const failures = results.filter((result) => result.status === 'rejected');
+        if (failures.length === results.length) {
+            throw new Error(failures.map((result) => result.reason && result.reason.message || String(result.reason)).join('; '));
+        }
+        if (failures.length > 0) {
+            log('partial delivery failure', failures.map((result) => result.reason && result.reason.message || String(result.reason)));
+        }
     }
 
     function canTrigger(event) {
@@ -707,6 +780,11 @@
             '/vw on | /vw off',
             '/vw url http://127.0.0.1:8920',
             '/vw client all | /vw client <clientId>',
+            '/vw mode local|remote|both',
+            '/vw relay <url>',
+            '/vw code <shareCode>|clear',
+            '/vw remote <shareCode> [relayUrl]',
+            '/vw local',
             '/vw max <1-200>',
             '/vw duration <ms>',
             '/vw maxduration <ms>',
@@ -740,7 +818,7 @@
         }
 
         if (sub === 'status') {
-            notify(`enabled=${settings.enabled}, url=${settings.baseUrl}, client=${settings.clientId}, max=${settings.maxFireStrength}, dry=${settings.dryRun}, seen=${runtime.eventSeen}, sent=${runtime.eventTriggered}, ok=${runtime.requestOk}, failed=${runtime.requestFailed}, last=${runtime.lastEvent || 'none'}`, 12000);
+            notify(`enabled=${settings.enabled}, mode=${deliveryMode()}, url=${settings.baseUrl}, client=${settings.clientId}, relay=${settings.relayUrl || 'none'}, code=${settings.shareCode || 'none'}, max=${settings.maxFireStrength}, dry=${settings.dryRun}, seen=${runtime.eventSeen}, sent=${runtime.eventTriggered}, ok=${runtime.requestOk}, failed=${runtime.requestFailed}, remoteOk=${runtime.remoteOk}, remoteFailed=${runtime.remoteFailed}, last=${runtime.lastEvent || 'none'}`, 12000);
             return true;
         }
 
@@ -766,6 +844,63 @@
             settings.clientId = parts[2];
             saveSettings();
             notify(`clientId set to ${settings.clientId}`);
+            return true;
+        }
+
+        if (sub === 'mode' && parts[2]) {
+            const nextMode = parts[2].toLowerCase();
+            if (!['local', 'remote', 'both'].includes(nextMode)) {
+                notify('mode must be local, remote, or both');
+            } else {
+                settings.deliveryMode = nextMode;
+                saveSettings();
+                notify(`mode=${settings.deliveryMode}`);
+            }
+            return true;
+        }
+
+        if (sub === 'relay' && parts[2]) {
+            const nextUrl = normalizeUrl(parts[2]);
+            if (!nextUrl) notify('invalid Relay URL');
+            else {
+                settings.relayUrl = nextUrl;
+                saveSettings();
+                notify(`Relay URL set to ${settings.relayUrl}`);
+            }
+            return true;
+        }
+
+        if (sub === 'code' && parts[2]) {
+            if (parts[2].toLowerCase() === 'clear') {
+                settings.shareCode = '';
+            } else {
+                settings.shareCode = normalizeShareCode(parts[2]);
+            }
+            saveSettings();
+            notify(settings.shareCode ? `shareCode set to ${settings.shareCode}` : 'shareCode cleared');
+            return true;
+        }
+
+        if (sub === 'remote') {
+            if (parts[2]) settings.shareCode = normalizeShareCode(parts[2]);
+            if (parts[3]) {
+                const nextUrl = normalizeUrl(parts[3]);
+                if (!nextUrl) {
+                    notify('invalid Relay URL');
+                    return true;
+                }
+                settings.relayUrl = nextUrl;
+            }
+            settings.deliveryMode = 'remote';
+            saveSettings();
+            notify(`remote mode enabled: code=${settings.shareCode || 'none'}, relay=${settings.relayUrl || 'none'}`);
+            return true;
+        }
+
+        if (sub === 'local') {
+            settings.deliveryMode = 'local';
+            saveSettings();
+            notify('local mode enabled');
             return true;
         }
 
